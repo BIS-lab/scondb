@@ -65,7 +65,11 @@
             <li>13 mouse lines generated</li>
             <li>MAGR/VDGN site tagetable</li>
           </ul>
-          <a href="https://doi.org/10.1038/s12276-022-00891-0" class="text-green-600 hover:text-green-800 font-medium mt-auto">📄 View paper</a>
+          <div class="flex justify-end">
+            <Button color="green" size="sm" class="mt-8 px-8" href="https://doi.org/10.1038/s12276-022-00891-0">
+              Go to paper →
+            </Button>
+          </div>
         </div>
       </div>
     
@@ -87,7 +91,11 @@
             <li>FRT-based SCON integration</li>
             <li>Used in Sox2 clonal analysis</li>
           </ul>
-          <a href="https://doi.org/10.1038/s41467-024-49382-y" class="text-green-600 hover:text-green-800 font-medium mt-auto">📄 View paper</a>
+          <div class="flex justify-end">
+            <Button color="green" size="sm" class="mt-8 px-8" href="https://doi.org/10.1038/s41467-024-49382-y">
+              Go to paper →
+            </Button>
+          </div>
         </div>
       </div>
     
@@ -116,50 +124,58 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 mt-5">
-      <!-- Left: Overview (좌측 전체 높이 차지) -->
-      <div class="p-10 bg-green-100 rounded-lg col-span-1 row-span-2">
-        <P size="xl" weight="medium">Database overview</P>
-        <img src="/scondb_overview2.svg" alt="overview_Img" class="w-full h-auto mt-4" />
-      </div>
+        <div class="grid grid-cols-1 md:grid-cols-[minmax(100px,550px)_1fr] gap-4 mt-5">
     
-      <!-- Right Top: Release Note -->
-      <div class="p-10 bg-green-100 rounded-lg">
-        <P size="xl" weight="medium">Release Note</P>
-        <div class="flex flex-row">
-          <P size="medium" weight="medium" class="p-2">2024.10.15</P>
-          <P class="p-2">Draft version publish</P>
-        </div>
-        <div class="flex flex-row">
-          <P size="medium" weight="medium" class="p-2">2025.04.17</P>
-          <P class="p-2">v1.0.0 First release</P>
+          <!-- Left: Database overview -->
+          <div class="p-10 bg-green-100 rounded-lg">
+            <P size="2xl" weight="bold" class="text-gray-800 mb-4">Database overview</P>
+            <img src="/scondb_overview2.svg" alt="overview_Img" class="w-full h-auto object-contain" />
+          </div>
+        
+          <!-- Right: Statistics -->
+          <div class="p-10 bg-green-100 rounded-lg">
+            <P size="2xl" weight="bold" class="text-gray-800 mb-4">Statistics</P>
+            <img src="/statistics.png" alt="SCON Statistics" class="w-full h-auto object-contain" />
+          </div>
+      
+        <!-- Bottom Full-Width: Release Note -->
+        <div class="p-10 bg-green-100 rounded-lg col-span-2">
+          <P size="2xl" weight="bold" class="text-gray-800 mb-4">Release Note</P>
+          <div class="flex flex-row mb-2">
+            <P size="md" weight="medium" class="w-32">2024.10.15</P>
+            <P class="flex-1">Draft version publish</P>
+          </div>
+          <div class="flex flex-row">
+            <P size="md" weight="medium" class="w-32">2025.04.17</P>
+            <P class="flex-1">v1.0.0 First release</P>
+          </div>
         </div>
       </div>
-    
-      <!-- Right Bottom: Citation -->
-      <div class="p-10 bg-green-100 rounded-lg">
-        <P size="xl" weight="medium">Citation</P>
-        <P class="mt-2">
-          <a href="https://doi.org/10.1038/s12276-022-00891-0" target="_blank" rel="noopener noreferrer"
-            class="text-black-600 hover:underline">
-            Wu, SH.S., Lee, H., Szép-Bakonyi, R. et al. SCON—a Short Conditional intrON for conditional knockout with one-step zygote injection. Exp Mol Med 54, 2188–2199 (2022).
-          </a>
-        </P>
-        <P class="mt-2">
-          <a href="https://doi.org/10.1038/s41467-024-49382-y" target="_blank" rel="noopener noreferrer"
-            class="text-black-600 hover:underline">
-            Wu, SH.S., Kim, S., Lee, H. et al. Red2Flpe-SCON: a versatile, multicolor strategy for generating mosaic conditional knockout mice. Nat Commun 15, 4963 (2024).
-          </a>
-        </P>
-
-        <P size="xl" weight="medium" class="mt-8">GitHub</P>
-        <P class="mt-2">
-          <a href="https://github.com/ibscge/scondb" target="_blank" rel="noopener noreferrer"
-            class="text-green-700 hover:underline font-medium">
-            🔗 github.com/ibscge/scondb
-          </a>
-        </P>
-      </div>
-    </div>
+      <!-- Footer -->
+      <footer class="bg-gray-100 w-full py-10 border-t border-gray-300 mt-10">
+        <div class="max-w-screen-xl px-6 text-sm text-gray-700 text-left">
+          <h4 class="text-base font-semibold mb-2">Citation</h4>
+          <p class="mb-1">
+            <a href="https://doi.org/10.1038/s12276-022-00891-0" target="_blank" rel="noopener noreferrer"
+              class="text-green-700 hover:underline">
+              Wu, SH.S., et al. SCON—a Short Conditional intrON for conditional knockout. <em>Exp Mol Med</em> (2022).
+            </a>
+          </p>
+          <p class="mb-1">
+            <a href="https://doi.org/10.1038/s41467-024-49382-y" target="_blank" rel="noopener noreferrer"
+              class="text-green-700 hover:underline">
+              Wu, SH.S., et al. Red2Flpe-SCON: strategy for mosaic knockout mice. <em>Nat Commun</em> (2024).
+            </a>
+          </p>
+          <h4 class="text-base font-semibold mb-2">GitHub</h4>
+          <p class="mb-1">
+            <a href="https://github.com/bis-lab/scondb" target="_blank" rel="noopener noreferrer"
+              class="text-green-700 hover:underline font-medium">
+              github.com/bis-lab/scondb
+            </a>
+          </p>
+          <p class="mt-4 text-gray-500">© 2025 BIS-Lab, CGE, IBS. All rights reserved.</p>
+        </div>
+      </footer>
   </div>
 </div>

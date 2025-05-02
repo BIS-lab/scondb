@@ -373,8 +373,8 @@
             left_arm = rightFlank + left3;
             right_arm = right1 + leftFlank;
         }
-
-        const header = `>Exon_${c.Exon}_Transcript_${c.Transcript}_Insertion_${insSeq}_${c.Insertion_start}-${c.Insertion_end}_5'->3'`;
+        const direction = strand === -1 ? "reverse" : "forward";
+        const header = `>Exon_${c.Exon}_Transcript_${c.Transcript}_Insertion_${insSeq}_${c.Insertion_start}-${c.Insertion_end}_${direction}`;
         const SCON = "GTAAGTAATAACTTCGTATAAGGTATCCTATACGAAGTTATTCTCTCTGCCTATTGGGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGGGTTTCTGATAGGCACTGACATAACTTCGTATAAGGTATCCTATACGAAGTTATTTTCCCTCCCTCAG";
         const sequenceLine = left_arm + SCON + right_arm;
 
@@ -384,7 +384,7 @@
 
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", `ssODN_${species}_${selected}.fa`);
+        link.setAttribute("download", `ssODN_${species}_${selected}.txt`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -731,7 +731,7 @@
 
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="Insertion_sequence"
         triggeredBy="#click12"
         trigger="click"
@@ -741,7 +741,7 @@
     >
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="Insertion_start"
         triggeredBy="#click13"
         trigger="click"
@@ -751,7 +751,7 @@
     </Popover>
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="Insertion_end"
         triggeredBy="#click14"
         trigger="click"
@@ -760,7 +760,7 @@
     >
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="Left_remain"
         triggeredBy="#click15"
         trigger="click"
@@ -771,7 +771,7 @@
     >
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="Right_remain"
         triggeredBy="#click16"
         trigger="click"
@@ -782,7 +782,7 @@
     >
     <Popover
         arrow={false}
-        class="popover-fix w-64 text-sm font-light"
+        class="popover-fix w-64 text-sm font-light z-9999"
         title="n_editable"
         triggeredBy="#click19"
         trigger="click"
@@ -847,8 +847,16 @@
         {#if sequence && cexoninfo}
         <div class="relative">
             <div class="text-center text-gray-700 text-sm font-mono pb-2">
-                chr{cexoninfo[0].Chromosome}:{Number(cexoninfo[0].Exon_start).toLocaleString()}-{Number(cexoninfo[0].Exon_end).toLocaleString()}
-            </div>
+                Exon {cexoninfo[0].Exon} |
+                chr{cexoninfo[0].Chromosome}:
+                {Number(cexoninfo[0].Exon_strand) === -1
+                  ? Number(cexoninfo[0].Exon_end).toLocaleString()
+                  : Number(cexoninfo[0].Exon_start).toLocaleString()}
+                -
+                {Number(cexoninfo[0].Exon_strand) === -1
+                  ? Number(cexoninfo[0].Exon_start).toLocaleString()
+                  : Number(cexoninfo[0].Exon_end).toLocaleString()}
+              </div>
             <!-- fixed legend box -->
             <div class="absolute top-3 left-3 z-50 bg-white border border-gray-300 p-3 rounded-md shadow-md text-sm space-y-1">
               <div><span class="text-gray-600 font-mono text-xs">5’ → 3’ direction</span></div>
@@ -858,7 +866,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <span class="w-4 h-4 bg-emerald-400 inline-block rounded-sm"></span>
-                <span class="text-gray-800">PAM Position</span>
+                <span class="text-gray-800">PAM Sequence</span>
               </div>
             </div>
             <div class="overflow-x-auto">
