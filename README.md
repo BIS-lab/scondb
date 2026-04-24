@@ -1,4 +1,5 @@
 # Universal conditional knockout approach to multiple species, from fish to human cells
+[![DOI](https://zenodo.org/badge/970715816.svg)](https://doi.org/10.5281/zenodo.19735706)
 
 
 This repository accompanies our study introducing SCON, a simplified, adaptable, and universal strategy for generating conditional loss-of-function alleles in model systems where traditional approaches are inefficient.
