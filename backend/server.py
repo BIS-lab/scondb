@@ -157,9 +157,16 @@ async def sconable_site_count_by_transcript(species: str, ensemble_rev: int, gen
     scon_sites = df_scon.query(f'scon_file=="{scon_file}" and Gene=="{gene}"')
     if scon_sites.empty:
         return []
+
+    ts_meta = scon_sites[['Transcript', 'transcript_length', 'is_canonical']].drop_duplicates()
+
+    ts_meta = ts_meta.replace([np.nan], [None])
+    transcripts_metadata = ts_meta.to_dict(orient='records')
+
     scon_site_counts = scon_sites.groupby(['Transcript', 'Exon']).count().Gene.unstack(level=0)
     df_out = scon_site_counts.reset_index().replace(np.nan, None)
-    return {'columns':df_out.columns.to_list(), 'rows': df_out.to_dict(orient='records')}
+
+    return {'columns':df_out.columns.to_list(), 'rows': df_out.to_dict(orient='records'),'transcripts_metadata': transcripts_metadata}
 
 
 @app.get('/scon_sites_by_transcript')
@@ -200,21 +207,33 @@ async def scon_sites_by_transcript(species: str, ensemble_rev: int, exon: str, t
 
     # gene = gene_info.query('feature=="gene"').iloc[0]
     gene = gene_info.iloc[0]
-    print(gene)
-    gene_seq = ref_fasta.fetch(gene.chrom, gene.start-1, gene.end)
+    print(f"Exon info: {gene}")
+    
+    # 1. 양방향 300bp 패딩 추가 (상동성 암 250bp + 여유분)
+    PADDING_BP = 300
+    fetch_start = max(0, gene.start - 1 - PADDING_BP) # 0 이하로 내려가는 것 방지
+    fetch_end = gene.end + PADDING_BP
 
-    len_padding = 0 if (gene.start%100==0) else gene.start%100
-    gene_seq = ' '*len_padding + gene_seq #f"{gene.start} {gene.end} {len_padding}"+
+    gene_seq = ref_fasta.fetch(gene.chrom, fetch_start, fetch_end)
 
-    bases = {i:{'chrom': gene.chrom, 'pos':i, 'base':c, 'className':'dna-char'}
-            for c, i in zip(gene_seq, range(gene.start-len_padding, gene.end+1))}
+    # pysam fetch의 시작점은 0-based이므로, 실제 가져온 첫 염기의 유전체 좌표(1-based)
+    genomic_start = fetch_start + 1
 
-    for i in range(gene.start-len_padding, gene.end+1):
-        if i%100==99:
+    # 2. 프론트엔드 UI(100bp 단위 정렬)를 위한 패딩 계산
+    len_padding = 0 if (genomic_start % 100 == 0) else genomic_start % 100
+    gene_seq = ' ' * len_padding + gene_seq
+
+    # 3. bases 딕셔너리 생성 시 좌표 매핑 범위 수정
+    bases = {i: {'chrom': gene.chrom, 'pos': i, 'base': c, 'className': 'dna-char'}
+             for c, i in zip(gene_seq, range(genomic_start - len_padding, fetch_end + 1))}
+
+    # 4. UI 그리드용 클래스 추가 루프 범위 수정
+    for i in range(genomic_start - len_padding, fetch_end + 1):
+        if i % 100 == 99:
             bases[i]['className'] += ' line-break'
-        elif i%50==49:
+        elif i % 50 == 49:
             bases[i]['className'] += ' chunk-sep-sep'
-        elif i%10==9:
+        elif i % 10 == 9:
             bases[i]['className'] += ' chunk-sep'
 
     for _, exon in gene_info.query('feature=="exon"').iterrows():

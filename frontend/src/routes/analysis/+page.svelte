@@ -149,10 +149,12 @@
         selectSuggestions = [];
     }
 
+    let associatedTranscripts = [];
     async function Search_SCONablesite(species, selected) {
         isLoadingSconable = true;
         sconable = null;
         exoninfo = null;
+        associatedTranscripts = []; // 초기화
 
         sconable = await load(
             `sconable_site_count_by_transcript?species=${species}&ensemble_rev=109&gene=${selected}&type=${selectedRadio}`,
@@ -160,6 +162,8 @@
         exoninfo = await load(
             `sconable_sites_group?species=${species}&ensemble_rev=109&gene=${selected}&type=${selectedRadio}`,
         );
+
+        associatedTranscripts = sconable.transcripts_metadata || [];
 
         sconable.rows.forEach((item) => {
             Object.values(item).forEach((value) => {
@@ -180,12 +184,27 @@
         return results;
     }
     let pamHighlights = [];
-
     async function Search_ExonInfo(cexon, ctranscript) {
         isLoadingSequence = true;
-        cexoninfo = exoninfo.filter((v) => v.Exon === cexon && v.Transcript === ctranscript);
-        const strand = Number(cexoninfo[0]?.Exon_strand) || 1;
+        // cexoninfo = exoninfo.filter((v) => v.Exon === cexon && v.Transcript === ctranscript);
+        // 1. 먼저 해당 엑손/트랜스크립트 데이터 필터링
+        let filteredData = exoninfo.filter((v) => v.Exon === cexon && v.Transcript === ctranscript);
 
+        // 2. Combined_score 기준 내림차순 정렬 추가
+        filteredData.forEach(exon => {
+            if (exon.scon_sites) {
+                exon.scon_sites.sort((a, b) => {
+                    // 점수가 없는 경우를 대비해 0으로 처리 (내림차순)
+                    const scoreA = Number(a.Combined_score) || 0;
+                    const scoreB = Number(b.Combined_score) || 0;
+                    return scoreB - scoreA; 
+                });
+            }
+        });
+
+        cexoninfo = filteredData;   
+
+        const strand = Number(cexoninfo[0]?.Exon_strand) || 1;
         clickedRows = new Array(maxVal).fill(false);
         clickedRows[0] = true;
 
@@ -287,9 +306,9 @@
 
         const headers = [
             "Exon", "Transcript", "Insertion_sequence", "Insertion_start",
-            "Insertion_end", "Left_remain", "Right_remain", "Self_complement",
-            "n_editable", "PAM_position", "Target_sequence", "Target_length",
-            "Target_start", "Target_end", "GC", "MM_score", "In_frame"
+            "Insertion_end", "Left_remain", "Right_remain",
+            "n_editable", "PAM_position", "Target_sequence",
+            "Target_start", "Target_end", "Combined_score", "GC", "Self_complement", "MM_score", "In_frame", "Distance_from_cut"
         ];
 
         const rows = cexoninfo.flatMap(c =>
@@ -301,16 +320,17 @@
                 c.Insertion_end,
                 c.Left_remain,
                 c.Right_remain,
-                c.Self_complement,
                 c.n_editable,
                 site.PAM_position,
-                site.Target_sequence,
-                site.Target_length,
-                site.Tartget_start,
-                site.Tartget_end,
+                site.Guide_sequence,
+                site.Guide_start,
+                site.Guide_end,
+                site.Combined_score,
                 site.GC,
+                c.Self_complement,
                 site.MM_score,
-                site["3N"] ?? ""
+                site["3N"] ?? "",
+                site.Cut_to_insert_distance,
             ])
         );
 
@@ -338,20 +358,25 @@
         const insSeq = c.Insertion_sequence;
         const insStart = Number(c.Insertion_start);
         const insEnd = Number(c.Insertion_end);
-        const cutSite = strand === 1 ? insStart : insEnd;
 
-        const leftFlankLen = 57;
-        const rightFlankLen = 59;
+        // Set the overall arm length target (250 bp each)
+        const targetLeftArmLen = 250;
+        const targetRightArmLen = 250;
+
         const left3 = insSeq.slice(0, 3);
         const right1 = insSeq.slice(-1);
 
         let leftFlank, rightFlank, left_arm, right_arm;
 
         if (strand === 1) {
-            const leftStart = cutSite - leftFlankLen;
-            const leftEnd = cutSite;
+            // Forward (+1) calculation
+            const leftFlankReq = targetLeftArmLen - left3.length; // 247
+            const rightFlankReq = targetRightArmLen - right1.length; // 249
+
+            const leftStart = insStart - leftFlankReq;
+            const leftEnd = insStart; 
             const rightStart = insEnd + 1;
-            const rightEnd = insEnd + rightFlankLen + 1;
+            const rightEnd = rightStart + rightFlankReq; 
 
             leftFlank = sequence.filter(s => s.pos >= leftStart && s.pos < leftEnd).map(s => s.base).join("");
             rightFlank = sequence.filter(s => s.pos >= rightStart && s.pos < rightEnd).map(s => s.base).join("");
@@ -359,10 +384,16 @@
             left_arm = leftFlank + left3;
             right_arm = right1 + rightFlank;
         } else {
-            const leftStart = insStart - 5 - leftFlankLen;
-            const leftEnd = insStart - 3;
-            const rightStart = cutSite + 4;
-            const rightEnd = cutSite + 2 + rightFlankLen;
+            // Reverse (-1) calculation
+            // The reverse left_arm consists of the forward rightFlank (reverse complement) + left3.
+            const rightFlankReq = targetLeftArmLen - left3.length; // 247
+            // The reverse right_arm consists of right1 + leftFlank (reverse complement) in the forward direction.
+            const leftFlankReq = targetRightArmLen - right1.length; // 249
+
+            const leftStart = insStart - leftFlankReq;
+            const leftEnd = insStart;
+            const rightStart = insEnd + 1;
+            const rightEnd = rightStart + rightFlankReq;
 
             leftFlank = sequence.filter(s => s.pos >= leftStart && s.pos < leftEnd).map(s => s.base).join("");
             rightFlank = sequence.filter(s => s.pos >= rightStart && s.pos < rightEnd).map(s => s.base).join("");
@@ -373,6 +404,13 @@
             left_arm = rightFlank + left3;
             right_arm = right1 + leftFlank;
         }
+
+        // A safety device for cases where data is insufficient to reach 250bp.
+        if (left_arm.length !== 250 || right_arm.length !== 250) {
+                console.warn(`[Insufficient Sequence Length] Extracted Left Arm: ${left_arm.length}bp, Right Arm: ${right_arm.length}bp.`);
+                alert(`The sequence retrieved from the API is insufficient to build the full 250bp homology arms.\n(Current length - Left: ${left_arm.length}bp, Right: ${right_arm.length}bp)\n\nPlease check the rendered sequence range in the sequence browser.`);
+            }
+
         const direction = strand === -1 ? "reverse" : "forward";
         const header = `>Exon_${c.Exon}_Transcript_${c.Transcript}_Insertion_${insSeq}_${c.Insertion_start}-${c.Insertion_end}_${direction}`;
         const SCON = "GTAAGTAATAACTTCGTATAAGGTATCCTATACGAAGTTATTCTCTCTGCCTATTGGGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGGGTTTCTGATAGGCACTGACATAACTTCGTATAAGGTATCCTATACGAAGTTATTTTCCCTCCCTCAG";
@@ -403,7 +441,7 @@
     }
     onMount(() => {
         if (!selectedRadio) {
-            selectedRadio = "MAGR";
+            selectedRadio = "VDGN";
         }
         load_data(selectedRadio);
         if (!species) {
@@ -489,26 +527,33 @@
                 name="radio"
                 color="green"
                 bind:group={selectedRadio}
-                value="MAGR"
-                on:change={() => handleRadioChange("MAGR")}
+                value="VDGN"
+                on:change={() => handleRadioChange("VDGN")}
             >
-                MAGR
+                VDGN ((A/G/C)-(A/T/G)-G-(A/T/G/C))
             </Radio>
+            <p class="ml-6 mt-1 text-xs text-gray-500 italic leading-relaxed">
+                (Default) Recommended for general use. It provides a broader range of candidate target sites.
+            </p>
             <Radio
                 name="radio"
                 color="green"
                 bind:group={selectedRadio}
-                value="VDGN"
-                on:change={() => handleRadioChange("VDGN")}
+                value="MAGR"
+                on:change={() => handleRadioChange("MAGR")}
             >
-                VDGN
+                MAGR ((A/C)-A-G-(A/G))
             </Radio>
+            <p class="ml-6 mt-1 text-xs text-gray-500 italic leading-relaxed">
+                Select this if you require more stringent splice junction sites.
+            </p>
         </div>
         <form class="flex">
             <div class="relative">
                 <input
                     type="text"
                     id="species_input"
+                    autocomplete="one-time-code"
                     bind:value={species}
                     required
                     placeholder="Search Species"
@@ -536,6 +581,7 @@
                 <input
                     type="text"
                     id="select_input"
+                    autocomplete="one-time-code"
                     bind:value={selected}
                     required
                     placeholder="Search Gene"
@@ -575,6 +621,43 @@
         </form>
     </div>
     <div class="p-3">
+    <div class="flex items-center gap-2">
+            <P size="xl" weight="semibold" class="py-3">Associated Transcripts</P>
+            {#if isLoadingSconable}
+                <Spinner size="6" color="green" />
+            {/if}
+        </div>
+
+        {#if sconable && associatedTranscripts.length > 0}
+            <div class="mb-6">
+                <Table hoverable={true} shadow>
+                    <TableHead class="bg-gray-50">
+                        <TableHeadCell>Transcript ID</TableHeadCell>
+                        <TableHeadCell>Transcript Length (bp)</TableHeadCell>
+                        <TableHeadCell>Canonical</TableHeadCell>
+                    </TableHead>
+                    <TableBody tableBodyClass="divide-y">
+                        {#each associatedTranscripts as ts}
+                            <TableBodyRow>
+                                <TableBodyCell>
+                                    <A href={`https://asia.ensembl.org/${species}/Transcript/Summary?t=${ts.Transcript}`}
+                                    target="_blank" class="font-medium text-green-600 hover:underline">
+                                        {ts.Transcript}
+                                    </A>
+                                </TableBodyCell>
+                                <TableBodyCell>{ts.transcript_length.toLocaleString()}</TableBodyCell>
+                                <TableBodyCell>
+                                    <span class={ts.is_canonical ? "text-green-600 font-bold" : "text-gray-400"}>
+                                        {ts.is_canonical ? 'Y' : 'N'}
+                                    </span>
+                                </TableBodyCell>
+                            </TableBodyRow>
+                        {/each}
+                    </TableBody>
+                </Table>
+            </div>
+        {/if}
+
         <div class="flex items-center gap-2">
             <P size="xl" weight="semibold" class="py-3">SCON targetable sites</P>
             {#if isLoadingSconable}
@@ -592,7 +675,7 @@
                                 <A
                                     href={`https://asia.ensembl.org/${species}/Transcript/Summary?t=${s}`}
                                     target="_blank"
-                                    class="underline hover:no-underline">{s}</A
+                                    class="font-medium text-green-600 hover:underline">{s}</A
                                 >
                             </TableHeadCell>
                         {/if}
@@ -1032,14 +1115,14 @@
                                                     <TableHeadCell id="click21"
                                                         >Target_sequence</TableHeadCell
                                                     >
-                                                    <TableHeadCell id="click22"
-                                                        >Target_length</TableHeadCell
-                                                    >
                                                     <TableHeadCell id="click23"
                                                         >Target_start</TableHeadCell
                                                     >
                                                     <TableHeadCell id="click24"
                                                         >Target_end</TableHeadCell
+                                                    >
+                                                    <TableHeadCell id="click27"
+                                                        >Combined_score</TableHeadCell
                                                     >
                                                     <TableHeadCell id="click17"
                                                         >GC</TableHeadCell
@@ -1049,6 +1132,9 @@
                                                     >
                                                     <TableHeadCell id="click25"
                                                         >mm_score</TableHeadCell
+                                                    >
+                                                    <TableHeadCell id="click28"
+                                                        >Distance_from_cut</TableHeadCell
                                                     >
                                                     <TableHeadCell id="click26"
                                                         >in_frame</TableHeadCell
@@ -1076,18 +1162,7 @@
                                                     reference="#click21"
                                                     >CRISPR sgRNA sequence</Popover
                                                 >
-                                                <Popover
-                                                    arrow={false}
-                                                    class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
-                                                    title="Target_length"
-                                                    triggeredBy="#click22"
-                                                    trigger="click"
-                                                    placement="bottom"
-                                                    reference="#click22"
-                                                    >Length of the CRISPR sgRNA
-                                                    sequence</Popover
-                                                >
-                                                <Popover
+                                                <!-- <Popover
                                                     arrow={false}
                                                     class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
                                                     title="Target_start"
@@ -1097,7 +1172,7 @@
                                                     reference="#click23"
                                                     >Start position of the
                                                     CRISPR sgRNA sequence</Popover
-                                                >
+                                                > -->
                                                 <Popover
                                                     arrow={false}
                                                     class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
@@ -1125,6 +1200,17 @@
                                                 <Popover
                                                     arrow={false}
                                                     class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
+                                                    title="Combined_score"
+                                                    triggeredBy="#click27"
+                                                    trigger="click"
+                                                    placement="bottom"
+                                                    reference="#click27"
+                                                    >Integrated scoring for guide 
+                                                    efficiency and specificity</Popover
+                                                >
+                                                <Popover
+                                                    arrow={false}
+                                                    class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
                                                     title="GC"
                                                     triggeredBy="#click17"
                                                     trigger="click"
@@ -1144,6 +1230,16 @@
                                                     reference="#click18"
                                                     >Number of possible occurrences where the CRISPR sgRNA sequence
                                                     forms a secondary hairpin structure</Popover
+                                                >
+                                                <Popover
+                                                    arrow={false}
+                                                    class="popover-fix w-64 text-sm font-light z-9999 text-wrap"
+                                                    title="Distance_from_cut"
+                                                    triggeredBy="#click28"
+                                                    trigger="click"
+                                                    placement="bottom"
+                                                    reference="#click28"
+                                                    >Distance between the cut site and the insertion site</Popover
                                                 >
                                                 <Popover
                                                     arrow={false}
@@ -1188,16 +1284,16 @@
                                                                             },
                                                                         ],
                                                                     )}
-                                                                >{ss.Target_sequence}</td
+                                                                >{ss.Guide_sequence}</td
                                                             >
                                                             <TableBodyCell
-                                                                >{ss.Target_length}</TableBodyCell
+                                                                >{ss.Guide_start}</TableBodyCell
                                                             >
                                                             <TableBodyCell
-                                                                >{ss.Tartget_start}</TableBodyCell
+                                                                >{ss.Guide_end}</TableBodyCell
                                                             >
                                                             <TableBodyCell
-                                                                >{ss.Tartget_end}</TableBodyCell
+                                                                >{ss.Combined_score}</TableBodyCell
                                                             >
                                                             <TableBodyCell
                                                                 >{ss.GC}</TableBodyCell
@@ -1207,6 +1303,9 @@
                                                             >
                                                             <TableBodyCell
                                                                 >{ss.MM_score}</TableBodyCell
+                                                            >
+                                                            <TableBodyCell
+                                                                >{ss.Cut_to_insert_distance}</TableBodyCell
                                                             >
                                                             <TableBodyCell
                                                                 >{ss[

@@ -25,7 +25,7 @@
     let mounted = false;
     let s_species = "";
     let filteredDataset = [];
-    let type = "MAGR";
+    let type = "VDGN";
     let isDropdownOpen = false;
 
     function goToAnalysis(species, type) {
@@ -87,12 +87,12 @@
 
         <Dropdown bind:open={isDropdownOpen}>
             <DropdownItem
-                on:click={() => (type = "MAGR") && (isDropdownOpen = false)}
-                >MAGR</DropdownItem
-            >
-            <DropdownItem
                 on:click={() => (type = "VDGN") && (isDropdownOpen = false)}
                 >VDGN</DropdownItem
+            >
+            <DropdownItem
+                on:click={() => (type = "MAGR") && (isDropdownOpen = false)}
+                >MAGR</DropdownItem
             >
         </Dropdown>
 
@@ -121,7 +121,7 @@
             <Table>
                 <TableHead>
                     <TableHeadCell>Species</TableHeadCell>
-                    <TableHeadCell>Ensemble revision</TableHeadCell>
+                    <TableHeadCell>Ensembl version</TableHeadCell>
                     <TableHeadCell>Dataset</TableHeadCell>
                     <TableHeadCell></TableHeadCell>
                 </TableHead>
