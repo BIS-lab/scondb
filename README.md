@@ -35,5 +35,6 @@ This repository includes:
 
 ## Citation
 If you use SCON or SCON-DB in your research, please cite:
+Choi, J.-H., et al. Universal conditional knockout approach to multiple species, from fish to human induced pluripotent stem cells. Nucleic Acids Research (2026).
 
 
